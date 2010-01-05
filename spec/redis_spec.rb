@@ -54,4 +54,38 @@ describe "redis" do
     @namespaced.mapped_mget('foo', 'baz', 'bar').should == { 'foo' => '1000', 'bar' => '2000'}
   end
 
+  it "should be able to use a namespace in a pipeline" do
+    @namespaced.pipelined do |namespaced_pipeline|
+      namespaced_pipeline['foo'] = 'chris'
+      namespaced_pipeline['bar'] = 'filip'
+      namespaced_pipeline.instance_variable_get(:@commands).length.should == 2
+    end
+
+    @namespaced['foo'].should == 'chris'
+    @namespaced['bar'].should == 'filip'
+  end
+
+  it "should not be able to use a namespace in a pipeline for mget command" do
+    lambda {
+      @namespaced.pipelined do |namespaced_pipeline|
+        namespaced_pipeline.mget('foo', 'bar')
+      end
+    }.should raise_error(RuntimeError)
+  end
+
+  it "should not be able to use a namespace in a pipeline for mset command" do
+    lambda {
+      @namespaced.pipelined do |namespaced_pipeline|
+        namespaced_pipeline.mset('foo' => '1000', 'bar' => '2000')
+      end
+    }.should raise_error(RuntimeError)
+  end
+
+  it "should not be able to use a namespace in a pipeline for msetnx command" do
+    lambda {
+      @namespaced.pipelined do |namespaced_pipeline|
+        namespaced_pipeline.msetnx('foo' => '1000', 'bar' => '2000')
+      end
+    }.should raise_error(RuntimeError)
+  end
 end

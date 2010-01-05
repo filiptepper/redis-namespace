@@ -109,33 +109,45 @@ class Redis
     end
 
     def mset(keys)
-      call_mset(:mset, keys)
+      call_command([:mset] + [prepare_mset(keys)])
     end
 
     def msetnx(keys)
-      call_mset(:msetnx, keys)
+      call_command([:msetnx] + [prepare_mset(keys)])
+    end
+
+    def pipelined(&block)
+      pipeline = NamespacePipeline.new(self, @namespace)
+      yield pipeline
+      pipeline.execute
     end
 
     def method_missing(command, *args, &block)
-      if COMMANDS.include?(command.to_s) && args[0]
-        args[0] = "#{@namespace}:#{args[0]}"
-      end
-
-      @redis.send(command, *args, &block)
+      @redis.send(command, *prepare_args(command, *args), &block)
     end
 
 
     private
 
 
-    def call_mset(command, keys)
+    def prepare_args(command, *args)
+      if COMMANDS.include?(command.to_s) && args[0]
+        args[0] = "#{@namespace}:#{args[0]}"
+      end
+
+      args
+    end
+
+    def prepare_mset(keys)
       if @namespace
         namespaced_keys = {}
         keys.each { |key, value| namespaced_keys["#{@namespace}:#{key}"] = value }
         keys = namespaced_keys
       end
 
-      call_command([command] + [keys])
+      keys
     end
   end
 end
+
+require File.join(File.dirname(__FILE__), "namespace_pipeline")
